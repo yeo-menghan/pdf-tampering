@@ -353,24 +353,20 @@ class PDFForensicAnalyzer:
             print(f"   • Possible content overlays or insertions")
             print(f"   • Structural inconsistencies")
 
-# Example usage and test function
-def test_analyzer():
-    """Test the analyzer with a sample PDF"""
-    import os
-    
-    # You would replace this with the path to your PDF file
-    test_pdf = "test.pdf"
-    
-    if not os.path.exists(test_pdf):
-        print("⚠️  Test PDF not found. Please provide a PDF file path.")
-        print("Usage example:")
-        print("analyzer = PDFForensicAnalyzer('your_document.pdf')")
-        print("analyzer.analyze_file_structure()")
-        return
-    
-    analyzer = PDFForensicAnalyzer(test_pdf)
-    analyzer.analyze_file_structure()
-
 if __name__ == "__main__":
-    print("PDF Forensic Structure Analyzer")    
-    test_analyzer()
+    import sys
+    import os
+
+    print("PDF Forensic Structure Analyzer")
+    if len(sys.argv) < 2:
+        print("⚠️  Please provide a PDF file path.")
+        print("Usage: python tamper.py <your_document.pdf>")
+        sys.exit(1)
+
+    pdf_path = sys.argv[1]
+    if not os.path.exists(pdf_path):
+        print(f"⚠️  File not found: {pdf_path}")
+        sys.exit(1)
+
+    analyzer = PDFForensicAnalyzer(pdf_path)
+    analyzer.analyze_file_structure()
