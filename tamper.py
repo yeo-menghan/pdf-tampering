@@ -20,7 +20,7 @@ class PDFForensicAnalyzer:
         self._analyze_basic_structure()
         
         # Metadata analysis
-        self._analyze_metadata()
+        self._analyze_metadata(threshold_days=30)
         
         # Object structure analysis
         self._analyze_objects()
@@ -39,7 +39,7 @@ class PDFForensicAnalyzer:
         
         # Generate forensic report
         self._generate_report()
-        
+
     def _analyze_basic_structure(self):
         """Analyze basic PDF structure"""
         try:
@@ -47,50 +47,66 @@ class PDFForensicAnalyzer:
                 # Read PDF header
                 header = f.read(8)
                 self.results['header'] = header.decode('utf-8', errors='ignore')
-                
-                # Check for linearization
+
+                # WIP: Check for linearization using a robust regex approach
                 f.seek(0)
-                first_1024 = f.read(1024)
-                self.results['linearized'] = b'/Linearized' in first_1024
-                
+                first_4096 = f.read(4096)  # Read more bytes for safety
+                linearized_regex = re.compile(
+                    br'1\s+0\s+obj\s*<<[^>]*?/Linearized[^>]*?>>',
+                    re.DOTALL
+                )
+                self.results['linearized'] = bool(linearized_regex.search(first_4096))
+
                 # Read entire file for analysis
                 f.seek(0)
                 self.pdf_content = f.read()
                 self.results['file_size'] = len(self.pdf_content)
-                
+
                 # Count xref tables (multiple xrefs may indicate modifications)
                 xref_count = self.pdf_content.count(b'xref')
                 self.results['xref_tables'] = xref_count
-                
+
         except Exception as e:
             self.results['basic_structure_error'] = str(e)
     
-    def _analyze_metadata(self):
+    def _analyze_metadata(self, threshold_days=30):
         """Analyze PDF metadata for inconsistencies"""
         try:
             doc = fitz.open(self.pdf_path)
             metadata = doc.metadata
-            
+
             self.results['metadata'] = metadata
-            
+
             # Check for suspicious metadata patterns
             creation_date = metadata.get('creationDate', '')
             mod_date = metadata.get('modDate', '')
-            
+
+            def parse_pdf_date(pdf_date):
+                if pdf_date.startswith('D:'):
+                    pdf_date = pdf_date[2:16]  # YYYYMMDDHHmmSS
+                # Fill missing components with zeros if necessary
+                pdf_date = pdf_date.ljust(14, '0')
+                try:
+                    return datetime.strptime(pdf_date, "%Y%m%d%H%M%S")
+                except Exception:
+                    return None
+                
             # Flag if modification date is before creation date
             if creation_date and mod_date:
-                try:
-                    # Parse PDF date format
-                    if creation_date.startswith('D:'):
-                        creation_date = creation_date[2:16]  # Extract YYYYMMDDHHMMSS
-                    if mod_date.startswith('D:'):
-                        mod_date = mod_date[2:16]
-                    
-                    if mod_date < creation_date:
+                creation_dt = parse_pdf_date(creation_date)
+                mod_dt = parse_pdf_date(mod_date)
+
+                if creation_dt and mod_dt:
+                    if mod_dt < creation_dt:
                         self.results['metadata_anomaly'] = "Modification date before creation date"
-                except:
-                    pass
-            
+                    else:
+                        days_diff = (mod_dt - creation_dt).days
+                        if days_diff > threshold_days:
+                            self.results['metadata_anomaly'] = (
+                                f"Modification date is {days_diff} days after creation date "
+                                f"(threshold: {threshold_days} days)"
+                            )
+                        
             # Check for common editing software signatures
             producer = metadata.get('producer', '').lower()
             creator = metadata.get('creator', '').lower()
@@ -107,6 +123,8 @@ class PDFForensicAnalyzer:
             
             self.results['potential_editors'] = editing_indicators
             
+            # TODO: check each version of the xrefs (records of PDF modification to see if they come from singular or multiple software)
+
             doc.close()
             
         except Exception as e:
