@@ -29,7 +29,7 @@ class PDFForensicAnalyzer:
         self._analyze_content_streams()
         
         # Font analysis
-        self._analyze_fonts()
+        self._analyze_fonts(unique_fonts_threshold=5)
         
         # Image analysis
         self._analyze_images()
@@ -197,32 +197,59 @@ class PDFForensicAnalyzer:
             
         except Exception as e:
             self.results['content_stream_error'] = str(e)
-    
-    def _analyze_fonts(self):
+
+    def _analyze_fonts(self, unique_fonts_threshold=5):
         """Analyze font usage patterns"""
         try:
-            doc = fitz.open(self.pdf_path)
-            
-            all_fonts = []
-            for page_num in range(len(doc)):
-                page = doc[page_num]
-                font_list = page.get_fonts()
-                all_fonts.extend([font[3] for font in font_list])  # Font name
-            
-            font_counter = Counter(all_fonts)
+            all_fonts_from_text = self._analyze_fonts_from_text()
             
             # Check for mixed font usage (potential tampering indicator)
-            unique_fonts = len(font_counter)
+            unique_fonts = len(all_fonts_from_text)
             self.results['font_analysis'] = {
                 'unique_fonts': unique_fonts,
-                'font_distribution': dict(font_counter),
-                'mixed_fonts_flag': unique_fonts > 5  # Arbitrary threshold
+                'font_distribution': dict(all_fonts_from_text),
+                'mixed_fonts_flag': unique_fonts > unique_fonts_threshold  # Arbitrary threshold
             }
-            
-            doc.close()
             
         except Exception as e:
             self.results['font_analysis_error'] = str(e)
+
+    def _analyze_fonts_from_text(self):
+        """Alternative method: analyze fonts from text blocks"""
+        try:
+            doc = fitz.open(self.pdf_path)
+            
+            all_fonts_from_text = []
+            
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                
+                # Get text with font information
+                blocks = page.get_text("dict")
+                
+                for block in blocks.get("blocks", []):
+                    if "lines" in block:
+                        for line in block["lines"]:
+                            for span in line.get("spans", []):
+                                font_name = span.get("font", "Unknown")
+                                clean_font = self._clean_font_name(font_name)
+                                all_fonts_from_text.append(clean_font)
+            
+            doc.close()
+            return Counter(all_fonts_from_text)
+        
+        except Exception as e:
+            return Counter()
+
+    def _clean_font_name(self, font_name):
+        """Remove PDF internal prefixes and extract actual font name"""
+        if not font_name:
+            return "Unknown"
+        
+        # Remove PDF subset prefixes (6 uppercase letters + '+')
+        cleaned = re.sub(r'^[A-Z]{6}\+', '', font_name)
+        
+        return cleaned
     
     def _analyze_images(self):
         """Analyze embedded images"""
@@ -363,13 +390,6 @@ class PDFForensicAnalyzer:
             emoji = "🟢"
         
         print(f"{emoji} RISK LEVEL: {risk_level}")
-        
-        if suspicion_score > 0:
-            print(f"\n💡 This document shows signs that may indicate:")
-            print(f"   • Potential editing or modification")
-            print(f"   • Use of PDF editing software") 
-            print(f"   • Possible content overlays or insertions")
-            print(f"   • Structural inconsistencies")
 
 if __name__ == "__main__":
     import sys
