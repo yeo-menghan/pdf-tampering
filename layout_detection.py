@@ -29,7 +29,9 @@ def run_mineru(images_dir, mineru_out_dir):
         'mineru',
         'infer',
         '--path', images_dir,
-        '--output', mineru_out_dir
+        '--output', mineru_out_dir,
+        '--method', 'ocr',
+        '--lang', 'en'
     ]
     print("Running minerU CLI...")
     result = subprocess.run(cmd, capture_output=True, text=True)
