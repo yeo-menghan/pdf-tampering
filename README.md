@@ -9,3 +9,19 @@ Looking at xref: https://pypdf2.readthedocs.io/en/3.x/dev/pdf-format.html
 
 
 Metadata
+
+## Setting up
+
+1. uv set-up
+
+Mac
+```bash
+uv sync
+source .venv/bin/activate
+```
+Windows
+```powershell
+uv sync
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\activate.ps1
+```
