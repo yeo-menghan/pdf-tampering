@@ -25,3 +25,9 @@ uv sync
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\.venv\Scripts\activate.ps1
 ```
+
+2. installing detectron2
+```powershell
+wsl
+pip install 'git+https://github.com/facebookresearch/detectron2.git'
+```

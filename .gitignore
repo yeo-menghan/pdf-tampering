@@ -210,3 +210,7 @@ data/
 quotes.db
 documents.db
 lp310/
+venv-linux/
+ocr_output/
+tmp_pdf_images/
+mineru_output/
